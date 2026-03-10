@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>SnakeGame LN V2</title>
+<link rel="icon" type="image/png" href="https://i.imgur.com/1nnAoCj.png">
+<meta name="keywords" content="Snake Game  By LN, Snake Game v2, Snake Game BY LN, snake game, permainan ular, game retro, game online, snake game pro, bermain ular, html5 game, javascript game">
+<meta name="description" content="Mainkan Snake Game Pro! Ular retro berjalan di atas foto keren dengan efek partikel, musik retro, dan skor tinggi.">
+<link rel="canonical" href="https://urdaddy-ctrl.github.io/snake-game-LN/">
+<style>
+html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; color:white; text-align:center; font-family:Segoe UI,Arial; }
+body::before{ content:""; position:fixed; top:0; left:0; width:100%; height:100%; background:url("https://i.imgur.com/as2MbSW.jpeg") center/cover no-repeat; filter:blur(30px) brightness(0.5); z-index:-2; }
+body.greenFlash::before{ animation:bgflash 0.3s; }
+@keyframes bgflash{0%{filter:blur(30px) brightness(0.5);}50%{filter:blur(30px) brightness(1.3) hue-rotate(80deg);}100%{filter:blur(30px) brightness(0.5);}}
+h1{margin-top:20px;}
+#topBar{display:flex; justify-content: space-between; position: relative; width: 95%; margin: 0 auto; padding: 10px;}
+#panel{text-align:left;font-size:18px;}
+#leaderboard{text-align:right;font-size:16px;min-width:180px;flex-shrink:0;}
+#globalLeaderboard li{display:flex;justify-content:flex-end;gap:6px;margin-bottom:4px;}
+#gameWrapper{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:400px;height:400px;z-index:1;}
+canvas{width:100%;height:100%;background:url("https://i.imgur.com/as2MbSW.jpeg") center/cover no-repeat;border:4px solid #00ffcc;box-shadow:0 0 20px #00ffcc;display:block;pointer-events:none;}
+body::after{content:"";position:fixed;top:0;left:0;width:100%;height:100%;background:repeating-linear-gradient(transparent,transparent 2px,rgba(0,0,0,0.3) 3px);pointer-events:none;z-index:5;}
+#startText{position:absolute;top:50px;left:50%;transform:translateX(-50%);font-size:18px;z-index:6;}
+#controls{display:none;}
+#playButton{font-size:28px;padding:14px 25px;border:none;border-radius:10px;background:#00ff66;color:#000;font-weight:bold;box-shadow:0 0 5px #00ff66;margin-top:10px;position:fixed;bottom:120px;left:50%;transform:translateX(-50%);z-index:20;cursor:pointer;}
+
+/* Name input overlay */
+#nameOverlay{
+  display:none;
+  position:fixed;
+  top:0;left:0;width:100%;height:100%;
+  background:rgba(0,0,0,0.8);
+  z-index:100;
+  justify-content:center;
+  align-items:center;
+  flex-direction:column;
+  gap:16px;
+}
+#nameOverlay.active{display:flex;}
+#nameOverlay .overlay-box{
+  background:#111;
+  border:2px solid #00ffcc;
+  box-shadow:0 0 30px #00ffcc44;
+  border-radius:12px;
+  padding:30px 36px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:14px;
+  max-width:340px;
+  width:85%;
+}
+#nameOverlay .overlay-title{font-size:22px;font-weight:bold;color:#ff4444;}
+#nameOverlay .overlay-score{font-size:18px;color:#00ff66;}
+#nameInput{
+  font-size:18px;
+  padding:10px 14px;
+  border:2px solid #00ffcc;
+  border-radius:8px;
+  background:#222;
+  color:white;
+  text-align:center;
+  width:80%;
+  outline:none;
+}
+#nameInput:focus{box-shadow:0 0 10px #00ffcc66;}
+#nameSubmit{
+  font-size:18px;
+  padding:10px 28px;
+  border:none;
+  border-radius:8px;
+  background:#00ff66;
+  color:#000;
+  font-weight:bold;
+  cursor:pointer;
+}
+
+@media (max-width: 768px){
+  #gameWrapper { width:280px; height:280px; top:45%; }
+  #topBar{flex-direction:column; align-items:center; gap:5px; margin-top:0;}
+  #panel, #leaderboard{font-size:14px;}
+  #playButton { font-size:22px; padding:8px 18px; bottom:120px; }
+}
+@media (max-width: 480px){
+  #gameWrapper { width:220px; height:220px; top:50%; }
+  #topBar{flex-direction:column; align-items:center; gap:3px; margin-top:0;}
+  #panel, #leaderboard{font-size:12px;}
+  #playButton { font-size:20px; padding:6px 12px; bottom:80px; }
+}
+</style>
+</head>
+<body>
+<h1>🐍 Snake Game LN</h1>
+
+<div id="topBar">
+  <div id="panel">Score: <span id="score">0</span> | High Score: <span id="highscore">0</span> | Speed: <span id="speed">1</span></div>
+  <div id="leaderboard">🏆Leaderboard<ol id="globalLeaderboard"></ol></div>
+</div>
+
+<p id="startText"></p>
+<div id="gameWrapper"><canvas id="game" width="420" height="420"></canvas></div>
+<button id="playButton">Play</button>
+
+<!-- Name input overlay (replaces prompt()) -->
+<div id="nameOverlay">
+  <div class="overlay-box">
+    <div class="overlay-title">Game Over!</div>
+    <div class="overlay-score">Score: <span id="finalScore">0</span></div>
+    <label style="font-size:14px;color:#aaa;">Masukkan nama kamu untuk leaderboard:</label>
+    <input type="text" id="nameInput" placeholder="Player" maxlength="20" autocomplete="off">
+    <button id="nameSubmit">Submit</button>
+  </div>
+</div>
+
+<audio id="retroMusic" loop><source src="retro.mp3" type="audio/mpeg"></audio>
+<audio id="eatSound"><source src="eat.mp3" type="audio/mpeg"></audio>
+
+<!-- Firebase module (isolated — if it fails to load, game still works) -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, push, onValue, query, orderByChild, limitToLast } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey:"AIzaSyAGT2xsMzyPc4004ZS4HNswphjFeXWQZNU",
+  authDomain:"snake-game-sy.firebaseapp.com",
+  databaseURL:"https://snake-game-sy-default-rtdb.firebaseio.com",
+  projectId:"snake-game-sy",
+  storageBucket:"snake-game-sy.firebasestorage.app",
+  messagingSenderId:"320457416451",
+  appId:"1:320457416451:web:9d4a3796ac602890b59336",
+  measurementId:"G-D7HZZX2N7C"
+};
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// Single persistent leaderboard listener (no stacking)
+const scoresRef = query(ref(db,"snake_scores"), orderByChild("score"), limitToLast(50));
+onValue(scoresRef, (snapshot) => {
+  let data = [];
+  let today = new Date().toISOString().slice(0,10);
+  snapshot.forEach(child => {
+    let s = child.val();
+    if(s.date === today) data.push(s);
+  });
+  data.sort((a,b) => b.score - a.score);
+  data = data.slice(0, 10);
+
+  let html = "";
+  data.forEach((s,i) => {
+    let badge = "";
+    if(i === 0) badge = "👑";
+    if(i === 1) badge = "🥈";
+    if(i === 2) badge = "🥉";
+    html += `<li><span>${badge}</span> ${s.name} - ${s.score}</li>`;
+  });
+  document.getElementById("globalLeaderboard").innerHTML = html;
+});
+
+window.saveGlobalScore = function(name, scoreVal) {
+  push(ref(db, "snake_scores"), {
+    name: name,
+    score: scoreVal,
+    date: new Date().toISOString().slice(0,10)
+  });
+};
+</script>
+
+<!-- Game logic (regular script — runs independently of Firebase) -->
+<script>
+var canvas = document.getElementById("game"), ctx = canvas.getContext("2d");
+var grid = 15, count = 0, score = 0, highscore = 0, speedLevel = 1, speed = 10;
+var gameStarted = false, isAlive = false, gameOverHandled = false;
+var snake = {x:0, y:0, dx:grid, dy:0, cells:[], maxCells:4};
+var apple = {x:grid*5, y:grid*5};
+var particles = [], powerUp = {x:-1, y:-1, active:false};
+var pendingScore = 0;
+
+function spawnPowerUp(){
+  if(!powerUp.active){
+    powerUp.x = Math.floor(Math.random()*(canvas.width/grid))*grid;
+    powerUp.y = Math.floor(Math.random()*(canvas.height/grid))*grid;
+    powerUp.active = true;
+  }
+}
+function drawPowerUp(){
+  if(powerUp.active){ctx.fillStyle="#ff00ff";ctx.fillRect(powerUp.x,powerUp.y,grid-1,grid-1);}
+}
+function checkPowerUpCollision(){
+  if(powerUp.active && snake.cells[0].x===powerUp.x && snake.cells[0].y===powerUp.y){
+    powerUp.active=false; score+=5; snake.maxCells++; spawnParticles(powerUp.x,powerUp.y); updateUI();
+  }
+}
+setInterval(spawnPowerUp, 10000);
+
+function spawnParticles(x,y){
+  for(var i=0;i<25;i++){
+    particles.push({x:x+grid/2, y:y+grid/2, vx:(Math.random()-0.5)*6, vy:(Math.random()-0.5)*6, life:30});
+  }
+}
+function drawParticles(){
+  for(var i=particles.length-1;i>=0;i--){
+    var p=particles[i]; p.x+=p.vx; p.y+=p.vy; p.life--;
+    ctx.fillStyle="#00ff88"; ctx.fillRect(p.x,p.y,3,3);
+    if(p.life<=0) particles.splice(i,1);
+  }
+}
+function updateUI(){
+  document.getElementById("score").innerText=score;
+  document.getElementById("highscore").innerText=highscore;
+  document.getElementById("speed").innerText=speedLevel;
+}
+function resetSnake(){snake.x=0;snake.y=0;snake.cells=[];snake.maxCells=4;snake.dx=grid;snake.dy=0;}
+
+function flashBackground(){
+  document.body.classList.add("greenFlash");
+  setTimeout(function(){document.body.classList.remove("greenFlash");},300);
+}
+
+// --- Name overlay logic (replaces prompt()) ---
+var nameOverlay = document.getElementById("nameOverlay");
+var nameInput = document.getElementById("nameInput");
+var nameSubmitBtn = document.getElementById("nameSubmit");
+var finalScoreEl = document.getElementById("finalScore");
+
+function showNameOverlay(finalScore){
+  pendingScore = finalScore;
+  finalScoreEl.textContent = finalScore;
+  nameInput.value = "";
+  nameOverlay.classList.add("active");
+  setTimeout(function(){ nameInput.focus(); }, 100);
+}
+
+function submitName(){
+  var name = (nameInput.value || "").trim() || "Player";
+  nameOverlay.classList.remove("active");
+
+  if(pendingScore > highscore) highscore = pendingScore;
+
+  // Guard: saveGlobalScore may not exist if Firebase failed to load
+  if(typeof window.saveGlobalScore === "function"){
+    window.saveGlobalScore(name, pendingScore);
+  }
+
+  // Reset for next round
+  snake.cells=[]; snake.maxCells=4; snake.x=0; snake.y=0; snake.dx=grid; snake.dy=0;
+  score=0; speedLevel=1; speed=10;
+  document.getElementById("playButton").style.display="block";
+  document.getElementById("startText").style.display="block";
+  updateUI();
+}
+
+nameSubmitBtn.addEventListener("click", submitName);
+nameInput.addEventListener("keydown", function(e){
+  if(e.key === "Enter") submitName();
+  e.stopPropagation();
+});
+
+// --- Play button ---
+var playButton = document.getElementById("playButton");
+playButton.addEventListener("click", function(){
+  var elem = document.documentElement;
+  if(elem.requestFullscreen) elem.requestFullscreen().catch(function(){});
+  else if(elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+  else if(elem.msRequestFullscreen) elem.msRequestFullscreen();
+
+  resetSnake(); score=0; speedLevel=1; speed=10;
+  gameStarted=true; isAlive=true; gameOverHandled=false;
+  playButton.style.display="none";
+  document.getElementById("startText").style.display="none";
+  updateUI();
+  document.getElementById("retroMusic").volume=1;
+  document.getElementById("retroMusic").play();
+});
+
+// --- Game over ---
+function handleGameOver(){
+  if(!gameOverHandled){
+    gameOverHandled=true;
+    isAlive=false;
+    gameStarted=false;
+    showNameOverlay(score);
+  }
+}
+
+// --- Game loop ---
+function loop(){
+  requestAnimationFrame(loop);
+  if(!gameStarted || !isAlive) return;
+  if(++count < speed) return;
+  count = 0;
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.strokeStyle="rgba(0,255,255,0.2)";
+  for(var x=0;x<canvas.width;x+=grid){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();}
+  for(var y=0;y<canvas.height;y+=grid){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();}
+
+  snake.x+=snake.dx; snake.y+=snake.dy;
+  if(snake.x<0) snake.x=canvas.width-grid;
+  if(snake.x>=canvas.width) snake.x=0;
+  if(snake.y<0) snake.y=canvas.height-grid;
+  if(snake.y>=canvas.height) snake.y=0;
+
+  snake.cells.unshift({x:snake.x,y:snake.y});
+  if(snake.cells.length>snake.maxCells) snake.cells.pop();
+
+  var pulse=Math.sin(Date.now()*0.01)*2;
+  ctx.fillStyle="red";
+  ctx.fillRect(apple.x-pulse/2, apple.y-pulse/2, grid-1+pulse, grid-1);
+
+  ctx.shadowColor="#00ff66"; ctx.shadowBlur=10;
+  snake.cells.forEach(function(cell, index){
+    ctx.fillStyle = index===0 ? "#006400" : "#00ff66";
+    ctx.fillRect(cell.x, cell.y, grid-1, grid-1);
+
+    if(index===0){
+      var eyeColor = score>=10 ? "red" : "black";
+      ctx.fillStyle=eyeColor;
+      var eyeSize=3;
+      if(snake.dx>0){ctx.fillRect(cell.x+9,cell.y+3,eyeSize,eyeSize);ctx.fillRect(cell.x+9,cell.y+9,eyeSize,eyeSize);}
+      else if(snake.dx<0){ctx.fillRect(cell.x+3,cell.y+3,eyeSize,eyeSize);ctx.fillRect(cell.x+3,cell.y+9,eyeSize,eyeSize);}
+      else if(snake.dy>0){ctx.fillRect(cell.x+3,cell.y+9,eyeSize,eyeSize);ctx.fillRect(cell.x+9,cell.y+9,eyeSize,eyeSize);}
+      else if(snake.dy<0){ctx.fillRect(cell.x+3,cell.y+3,eyeSize,eyeSize);ctx.fillRect(cell.x+9,cell.y+3,eyeSize,eyeSize);}
+    }
+
+    if(cell.x===apple.x && cell.y===apple.y){
+      snake.maxCells++; score++;
+      spawnParticles(apple.x, apple.y);
+      document.getElementById("eatSound").play();
+      flashBackground();
+      if(score%5===0){speedLevel++; speed=Math.max(1, speed-0.5);}
+      apple.x=Math.floor(Math.random()*(canvas.width/grid))*grid;
+      apple.y=Math.floor(Math.random()*(canvas.height/grid))*grid;
+      updateUI();
+    }
+
+    for(var i=index+1;i<snake.cells.length;i++){
+      if(cell.x===snake.cells[i].x && cell.y===snake.cells[i].y){ handleGameOver(); break; }
+    }
+  });
+
+  drawPowerUp(); checkPowerUpCollision(); drawParticles();
+}
+
+// --- Controls (ignore when overlay is open) ---
+document.addEventListener("keydown", function(e){
+  if(nameOverlay.classList.contains("active")) return;
+  switch(e.which){
+    case 37: if(snake.dx===0){snake.dx=-grid;snake.dy=0;}break;
+    case 38: if(snake.dy===0){snake.dx=0;snake.dy=-grid;}break;
+    case 39: if(snake.dx===0){snake.dx=grid;snake.dy=0;}break;
+    case 40: if(snake.dy===0){snake.dx=0;snake.dy=grid;}break;
+  }
+});
+
+var touchStartX=0, touchStartY=0;
+document.addEventListener("touchstart", function(e){
+  if(nameOverlay.classList.contains("active")) return;
+  touchStartX=e.touches[0].clientX; touchStartY=e.touches[0].clientY;
+},{passive:true});
+document.addEventListener("touchend", function(e){
+  if(nameOverlay.classList.contains("active")) return;
+  var dx=e.changedTouches[0].clientX-touchStartX;
+  var dy=e.changedTouches[0].clientY-touchStartY;
+  if(Math.abs(dx)>Math.abs(dy)){
+    if(dx>0 && snake.dx===0){snake.dx=grid;snake.dy=0;}
+    else if(dx<0 && snake.dx===0){snake.dx=-grid;snake.dy=0;}
+  } else {
+    if(dy>0 && snake.dy===0){snake.dx=0;snake.dy=grid;}
+    else if(dy<0 && snake.dy===0){snake.dx=0;snake.dy=-grid;}
+  }
+},{passive:true});
+
+updateUI();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
